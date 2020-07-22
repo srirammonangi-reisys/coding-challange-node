@@ -1,5 +1,5 @@
-var querystring = require('querystring');
-var https = require('https');
+const querystring = require('querystring');
+const https = require('https');
 const { Client } = require('pg');
 
 const client = new Client({
@@ -10,74 +10,88 @@ const client = new Client({
     port: 5432,
 });
 
-var host = 'api.sam.gov';
-var api_key = '9PdfUrRuXuBUsMK0kgApHBn0tyFAlA2VjcV44rRT';
-var totalOpps;
+const host = 'api.sam.gov';
+const api_key = '9PdfUrRuXuBUsMK0kgApHBn0tyFAlA2VjcV44rRT';
 
-client.connect();
+// Starting point
+(async function main() {
+    const opportunitiesPerPage = 1000; // max allowed 1k, so we need to make multiple calls
+
+    let pageOne = await callOpportunitiesAPI(1, opportunitiesPerPage);
+    let totalOpps = pageOne.totalRecords;
+    let totalPages = Math.ceil(totalOpps / opportunitiesPerPage);
+    let insertedCount = 0;
+
+    await client.connect();
+
+    for (let n = 1; n <= totalPages; ++n) {
+        let pageN = await callOpportunitiesAPI(n, opportunitiesPerPage);
+
+        for (let record of pageN.opportunitiesData) {
+            await insertToDB(record.noticeId, record);
+            insertedCount++;
+            if (insertedCount % opportunitiesPerPage === 0) { console.log('inserted', insertedCount); }
+        }
+    }
+
+    await client.end();
+    console.log('Done inserting to DB');
+})();
+
+async function insertToDB(id, data) {
+    let sql = `INSERT INTO opportunities (opportunity_id, opportunity_data) VALUES ('${id}','${JSON.stringify(data).replace(/\'/g, '')}')`;
+    await client.query(sql)
+        .catch(e => console.error('DB error', e, data));
+}
+
+function callOpportunitiesAPI(page, pageSize) {
+    let offset = (page - 1) * pageSize;
+    if (page > 1) {
+        offset += 1;
+    }
+
+    return performRequest('/prod/opportunities/v1/search', 'GET', {
+        "limit": pageSize,
+        "api_key": api_key,
+        "postedFrom": "01/01/2020",
+        "postedTo": "12/31/2020",
+        "offset": offset
+    }, function (data) {
+        console.log('Fetched opportunities', data);
+    });
+}
 
 function performRequest(endpoint, method, data, success, callback) {
-    var dataString = JSON.stringify(data);
-    var headers = {};
+    let dataString = JSON.stringify(data);
+    let headers = {};
 
     if (method == 'GET') {
         endpoint += '?' + querystring.stringify(data);
     }
 
-    var options = {
+    let options = {
         host: host,
         path: endpoint,
         method: method,
         headers: headers
     };
 
-    var req = https.request(options, callback);
-
-    req.write(dataString);
-    req.end();
-}
-
-function getOpportunitiesData(offset) {
-    performRequest('/prod/opportunities/v1/search', 'GET', {
-        "limit": 1,
-        "api_key": api_key,
-        "postedFrom": "01/01/2020",
-        "postedTo": "12/31/2020",
-        "offset": offset
-    }, function (data) {
-        console.log('Fetched 5 records');
-    });
-}
-
-function insertToDB(id, data) {
-    client.query("INSERT INTO opportunities (opportunity_id, opportunity_data) VALUES ('" + id + "','" + JSON.stringify(data) + "')", (err, res) => {
-        if (err) {
-            console.error(err);
-            return;
-        }
-    });
-}
-
-getOpportunitiesData(0);
-
-function processOppsData(res) {
     return new Promise((resolve, reject) => {
-        res.setEncoding('utf-8');
-        var responseString = '';
-        res.on('data', function (data) {
-            responseString += data;
+        let req = https.request(options, (res) => {
+            let responseString = '';
+            res.setEncoding('utf-8');
+
+            res.on('data', function (data) {
+                responseString += data;
+            });
+
+            res.on('end', function () {
+                let responseJson = JSON.parse(responseString);
+                resolve(responseJson);
+            });
         });
-        res.on('end', function () {
-            var responseObject = JSON.parse(responseString);
-            totalOpps = responseObject.totalRecords;
-            console.log(totalOpps);
-            for (var i in responseObject.opportunitiesData) {
-                var record = responseObject.opportunitiesData[i];
-                var noticeId = record.noticeId;
-                insertToDB(noticeId, record);
-            }
-            console.log("Insert Completed");
-        });
+
+        req.write(dataString);
+        req.end();
     });
 }
-
