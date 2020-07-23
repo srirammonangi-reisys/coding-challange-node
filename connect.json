@@ -1,0 +1,7 @@
+{
+    "user": "postgres",
+    "host": "gsa-coding-challenge.ccr1debqftur.us-east-1.rds.amazonaws.com",
+    "database": "postgres",
+    "password": "rei12345",
+    "port": 5432
+}

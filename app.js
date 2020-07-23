@@ -1,5 +1,8 @@
 const express = require('express')
 const app = express()
+var cors = require('cors')
+
+app.use(cors());
 
 const db = require('./db');
 const pool = db.pool;
@@ -14,13 +17,25 @@ app.get('/orgAwardedAmount', async (req, res) => {
   let orgs = req.query.orgs.split('|').map(o => quoted(o));
   let from = req.query.from;
   let to = req.query.to;
-
   console.log('Get org awarded amount request', orgs, from, to);
 
   let q = `SELECT * FROM opportunities WHERE to_date(opportunity_data ->> 'postedDate', 'YYYY-MM-DD') < '${to}' AND to_date(opportunity_data ->> 'postedDate', 'YYYY-MM-DD') > '${from}' AND opportunity_data ->> 'department' IN (${orgs.join(',')});`
   console.log(q);
   let results = await pool.query(q);
   console.log(results);
+});
+  
+
+app.get('/setAsideByOppsType', cors(), async (req, res) => {
+  
+  let result = await pool.query(`select setaside, type, count (*) from
+  (select opportunity_data ->> 'noticeId' as ID, 
+  opportunity_data ->> 'typeOfSetAsideDescription' as setaside,
+  opportunity_data ->> 'type' as type
+  from opportunities) as table1
+  group by setaside, type`);
+
+  res.send(result.rows);
 });
 
 app.listen(port, () => console.log(`Listening at http://localhost:${port}`))
