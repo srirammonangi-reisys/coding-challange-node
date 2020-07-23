@@ -8,6 +8,7 @@ const connectInfo = JSON.parse(fs.readFileSync(__dirname + path.sep + configFile
 let pool = null;
 
 if (!pool) {
+    console.log('Starting db pool');
     pool = new pg.Pool(connectInfo);
     pool.on('error', (err, client) => 
         console.error('db client error', client, err)
