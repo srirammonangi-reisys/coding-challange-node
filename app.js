@@ -12,14 +12,14 @@ const api_key = '9PdfUrRuXuBUsMK0kgApHBn0tyFAlA2VjcV44rRT';
 
 const port = 3000
 
-app.get('/orgAwardedAmount', async (req, res) => {
+app.get('/orgAwardedAmount', cors(), async (req, res) => {
   const quoted = (s) => `'${s}'`
   let orgs = req.query.orgs.split('|').map(o => quoted(o));
   let from = req.query.from;
   let to = req.query.to;
   console.log('Get org awarded amount request', orgs, from, to);
 
-  let q = `SELECT * FROM opportunities WHERE to_date(opportunity_data ->> 'postedDate', 'YYYY-MM-DD') < '${to}' AND to_date(opportunity_data ->> 'postedDate', 'YYYY-MM-DD') > '${from}' AND opportunity_data ->> 'department' IN (${orgs.join(',')}) AND opportunity_data ->> 'award' IS NOT NULL;`;
+  let q = `SELECT * FROM opportunities WHERE to_date(opportunity_data ->> 'postedDate', 'YYYY-MM-DD') < '${to}' AND to_date(opportunity_data ->> 'postedDate', 'YYYY-MM-DD') > '${from}' AND opportunity_data ->> 'department' IN (${orgs.join(',')}) AND opportunity_data -> 'award' ->> 'amount' IS NOT NULL;`;
   console.log(q);
   let result = await pool.query(q);
   res.send(result.rows);
