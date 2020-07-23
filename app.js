@@ -19,10 +19,10 @@ app.get('/orgAwardedAmount', async (req, res) => {
   let to = req.query.to;
   console.log('Get org awarded amount request', orgs, from, to);
 
-  let q = `SELECT * FROM opportunities WHERE to_date(opportunity_data ->> 'postedDate', 'YYYY-MM-DD') < '${to}' AND to_date(opportunity_data ->> 'postedDate', 'YYYY-MM-DD') > '${from}' AND opportunity_data ->> 'department' IN (${orgs.join(',')});`
+  let q = `SELECT * FROM opportunities WHERE to_date(opportunity_data ->> 'postedDate', 'YYYY-MM-DD') < '${to}' AND to_date(opportunity_data ->> 'postedDate', 'YYYY-MM-DD') > '${from}' AND opportunity_data ->> 'department' IN (${orgs.join(',')}) AND opportunity_data ->> 'award' IS NOT NULL;`;
   console.log(q);
-  let results = await pool.query(q);
-  console.log(results);
+  let result = await pool.query(q);
+  res.send(result.rows);
 });
   
 
