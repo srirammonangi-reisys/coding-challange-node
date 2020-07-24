@@ -38,4 +38,14 @@ app.get('/setAsideByOppsType', cors(), async (req, res) => {
   res.send(result.rows);
 });
 
+app.get('/totalOppsByOppsType', cors(), async (req, res) => {
+  
+  let result = await pool.query(`select oppstype, count(oppstype) from
+  (select opportunity_data ->> 'type' as oppstype 
+  from opportunities) as table1
+  group by oppstype`);
+
+  res.send(result.rows);
+});
+
 app.listen(port, () => console.log(`Listening at http://localhost:${port}`))
